@@ -2,6 +2,7 @@
 #-*- coding: utf-8 -*-
 
 import curses, curses.textpad
+from default import *
 from secretkey import *
 from twython import Twython, TwythonStreamer, TwythonError
 from twython.streaming.types import TwythonStreamerTypesStatuses
@@ -20,6 +21,10 @@ class MainWindow(object):
         self.statbar.bkgd("-")
         self.statbar.refresh()
 
+        self.plugin = []
+        self.key_bind = {}
+        self.add_plugin(default_plugin(self))
+
         self.change_modename("Waiting")
 
         self.api = Twython(c_key, c_secret, a_key, a_secret)
@@ -28,35 +33,42 @@ class MainWindow(object):
     def main(self):
         while 1:
             key = self.cmdwin.getkey()
-            
-            if key == "n":
-                self.change_modename("tweet mode")
-                self.cmdwin.refresh()
-                tweet = self.cmdbox.edit()
-                self.cmdwin.erase()
-                self.cmdwin.refresh()
-                self.tweet(tweet)
-                self.change_modename("Waiting")
+
             if key == "q":
                 break
-            if key == "t":
-                self.streamer.on_status({"user":{"name":"maleic"}, "text":"test"})
-            if key == ".":
-                self.change_modename("Getting latest Tweets...")
-                self.get_home_timeline()
+            
+            if key in self.key_bind:
+                curses.curs_set(2)
+                
+                name, func = self.key_bind[key]
+                self.change_modename(name)
+                func()
                 self.change_modename("Waiting")
+
+                curses.curs_set(0)
 
         curses.nocbreak()
         curses.echo()
         curses.endwin()
 
+    def add_plugin(self, cls):
+        self.plugin.append(cls)
+        for name, func, bind in cls.cmd_list:
+            self.key_bind[bind] = (name, func)
+        
     def get_home_timeline(self):
         statuses = self.api.get_home_timeline()
         for status in statuses[::-1]:
             self.on_status(status)
 
-    def tweet(self, tweet):
-        self.api.update_status(tweet)
+    def user_input(self):
+        input = self.cmdbox.edit()
+        self.cmdwin.erase()
+        self.cmdwin.refresh()
+        return input
+        
+    def tweet(self, content):
+        self.api.update_status(status=content)
 
     def change_modename(self, name):
         self.modename = name
@@ -64,7 +76,7 @@ class MainWindow(object):
 
     def statbar_refresh(self):
         self.statbar.erase()
-        self.statbar.addstr("  (mode:%s)" % self.modename)
+        self.statbar.addstr("  (%s)" % self.modename)
         self.statbar.refresh()
 
     def on_status(self, status):
