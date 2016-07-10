@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
+import locale
 import curses, curses.textpad
 from default import *
 from secretkey import *
@@ -12,23 +13,29 @@ class MainWindow(object):
         self.win = curses.initscr()
         curses.noecho()
         curses.cbreak()
+        locale.setlocale(locale.LC_ALL, "")
         self.max_y, self.max_x = self.win.getmaxyx()
+        self.win.scrollok(True)
         self.win.refresh()
         self.mwin = self.win.subwin(self.max_y-2, self.max_x, 0, 0)
         self.cmdwin = self.win.subwin(1, self.max_x, self.max_y-1, 0)
-        self.cmdbox = curses.textpad.Textbox(self.cmdwin)
+        #self.cmdbox = curses.textpad.Textbox(self.cmdwin)
         self.statbar = self.win.subwin(1, self.max_x, self.max_y-2, 0)
         self.statbar.bkgd("-")
         self.statbar.refresh()
+        self.latest_id = 0
+        self.loaded_status = []
+        
 
         self.plugin = []
         self.key_bind = {}
         self.add_plugin(default_plugin(self))
-
         self.change_modename("Waiting")
 
         self.api = Twython(c_key, c_secret, a_key, a_secret)
         self.streamer = cmaletter_streamer(self, c_key, c_secret, a_key, a_secret)
+
+        self.get_home_timeline(num = 20)
         
     def main(self):
         while 1:
@@ -56,13 +63,24 @@ class MainWindow(object):
         for name, func, bind in cls.cmd_list:
             self.key_bind[bind] = (name, func)
         
-    def get_home_timeline(self):
-        statuses = self.api.get_home_timeline()
+    def get_home_timeline(self, num=-1):
+        if num == -1:
+            statuses = self.api.get_home_timeline(since_id = self.latest_id)
+        else:
+            statuses = self.api.get_home_timeline(count = num)
+            
         for status in statuses[::-1]:
             self.on_status(status)
+            self.latest_id = status['id']
 
+    def get_loaded_status(self):
+        return self.loaded_status
+            
     def user_input(self):
-        input = self.cmdbox.edit()
+        self.cmdwin.refresh()
+        curses.echo()
+        input = self.cmdwin.getstr()
+        curses.noecho()
         self.cmdwin.erase()
         self.cmdwin.refresh()
         return input
@@ -82,6 +100,7 @@ class MainWindow(object):
     def on_status(self, status):
         self.mwin.addstr("%s: %s\n" % (status['user']['name'], status['text']))
         self.mwin.refresh()
+        self.loaded_status.append(status)
         
 class cmaletter_streamer(TwythonStreamer):
     def __init__(self, mainwindow, *args):

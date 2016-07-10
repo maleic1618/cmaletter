@@ -19,3 +19,4 @@ ACCESS_KEY = '""" + callback['oauth_token'] +"'\nACCESS_SECRET = '" + callback['
 
 with open('secretkey.py', 'w') as f:
     f.write(string)
+print("done!")
