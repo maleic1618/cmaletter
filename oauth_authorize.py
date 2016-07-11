@@ -2,8 +2,10 @@
 #!-*-coding:utf-8-*-
 
 from twython import Twython
-from secretkey import *
 import webbrowser
+
+CONSUMER_KEY = 'UTjGwUyLUStPp1B956snTQ'
+CONSUMER_SECRET = 'VjpEYudF11XSN9vsMeQyycelvQmptHgqqmCmt1eI'
 
 api = Twython(CONSUMER_KEY, CONSUMER_SECRET)
 url = api.get_authentication_tokens()
